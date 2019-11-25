@@ -1,0 +1,129 @@
+import requests
+import json
+from datetime import datetime
+import configs.config as config
+
+#Falta verificar o response.status_code / se da erro (url errado)
+#
+class Weather_api:
+
+	def __init__(self):
+		# api.openweathermap.org/data/2.5/forecast?id=
+		self.api_url_website = "https://samples.openweathermap.org/data/2.5/forecast?id=";
+		self.api_id_city = config.weather_api['city_id'];
+		self.api_key = config.weather_api['key'];
+
+		self.api_url = self.api_url_website + "" + str(self.api_id_city) + "&appid=" + self.api_key;
+
+
+	def get_data(self):
+		response = requests.get(self.api_url)
+		return self.montar_array(response.json())
+
+	#return data
+	#data -> 0 -> string with city name and country
+	#     -> 1 -> json with the first 9 
+	#     -> 2 -> json with weather by days (5 days)
+	def montar_array(self, json):
+		data = []
+		#city/country
+		data.append(json['city']['name'])
+		if(json['city']['country'] != "none"):
+			data[0] += " " + json['city']['country']
+
+		# get first 9 elements from json and save it on data[1]
+		data.append(json['list'][0:9])
+		data.append([])
+		
+		weather_in_a_day = []
+		#organize weather by days on a array
+		for weather in json['list']:
+			if(len(weather_in_a_day) != 0):
+				#check if its the same day and if it is, add the weather to the array
+				if(datetime.fromtimestamp(weather["dt"]).day == datetime.fromtimestamp(weather_in_a_day[0]["dt"]).day):
+					weather_in_a_day.append(weather)
+				else:
+					#if its a different day, call organize_weather_day and delete all data from the weather_in_array so it can be filled for the next day
+					#add mid-night from the next day
+					weather_in_a_day.append(weather)
+					data[2].append(self.organize_weather_day(weather_in_a_day))
+					del weather_in_a_day[:]
+					weather_in_a_day.append(weather)
+			else:
+				#empty array, add first element
+				weather_in_a_day.append(weather)
+
+		return data
+
+
+	#return weather_in_hours
+	#weather_in_hours -> 0 -> day
+	#         		  -> 1 -> temperature
+	#         		  -> 2 -> min
+	#         		  -> 3 -> max
+	#          		  -> 4 -> wind
+	#         		  -> 5 -> humidity
+	#         		  -> 6 -> clouds
+	#         		  -> 7 -> rain
+	#         		  -> 8 -> picture
+	def organize_weather_day(self, weather):
+		weather_in_hours = ["",0,0,0,0,0,0,0,[]]
+
+		date = datetime.fromtimestamp(weather[0]['dt'])
+		weather_in_hours[0] = str(date.day) + "-" + str(date.month) + "-" + str(date.year)
+		mini = []
+		maxi = []
+		pic = []
+		pic_id = []
+
+		for w in weather:
+			weather_in_hours[1] += w['main']['temp']
+			mini.append(w['main']['temp_min'])
+			maxi.append(w['main']['temp_max'])
+			weather_in_hours[4] += w['wind']['speed']
+			weather_in_hours[5] += w['main']['humidity']
+			weather_in_hours[6] += w['clouds']['all']
+			if("rain" in w):
+				weather_in_hours[7] += w['rain']['3h']
+			if(date.hour >= 9 and date.hour <= 18):
+				pic.append(w['weather'])
+				pic_id.append(w['weather'][0]['id'])
+
+		weather_in_hours[1] = weather_in_hours[1]/len(weather_in_hours)
+		weather_in_hours[2] = max(maxi)
+		weather_in_hours[3] = min(mini)
+		weather_in_hours[4] = weather_in_hours[4]/len(weather_in_hours)
+		weather_in_hours[5] = weather_in_hours[5]/len(weather_in_hours)
+		weather_in_hours[6] = weather_in_hours[6]/len(weather_in_hours)
+		if(weather_in_hours[7] != 0):
+			weather_in_hours[7] = weather_in_hours[7]/len(weather_in_hours)
+
+		if(len(pic) == 0):
+			weather_in_hours[8] = weather[0]['weather']
+		else:
+			weather_in_hours[8] = pic[self.most_frequent(pic_id)]
+
+		return weather_in_hours
+
+	
+	def most_frequent(self,List): 
+	    counter = 0
+	    num = List[0]
+	    i = 0
+	    ret = 0
+	    
+	    for l in List:
+	        curr_frequency = List.count(l) 
+	        if(curr_frequency > counter): 
+	            counter = curr_frequency 
+	            num = l
+	            ret = i
+	        ++i 
+	  
+	    return ret
+
+
+	def jprint(self, obj):
+	    # create a formatted string of the Python JSON object
+	    text = json.dumps(obj, sort_keys=True, indent=4)
+	    return text
