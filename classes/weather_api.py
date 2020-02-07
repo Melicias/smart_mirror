@@ -27,6 +27,7 @@ class Weather_api:
 	def montar_array(self, json):
 		data = []
 		#city/country
+		#print(json)
 		data.append(json['city']['name'])
 		if(json['city']['country'] != "none"):
 			data[0] += " " + json['city']['country']
