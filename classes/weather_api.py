@@ -9,7 +9,7 @@ class Weather_api:
 
 	def __init__(self):
 		# api.openweathermap.org/data/2.5/forecast?id=
-		self.api_url_website = "https://samples.openweathermap.org/data/2.5/forecast?id=";
+		self.api_url_website = "http://api.openweathermap.org/data/2.5/forecast?id=";
 		self.api_id_city = config.weather_api['city_id'];
 		self.api_key = config.weather_api['key'];
 
@@ -32,7 +32,7 @@ class Weather_api:
 			data[0] += " " + json['city']['country']
 
 		# get first 9 elements from json and save it on data[1]
-		data.append(json['list'][0:9])
+		data.append(self.organize_first_nine(json['list'][0:9]))
 		data.append([])
 		
 		weather_in_a_day = []
@@ -70,7 +70,7 @@ class Weather_api:
 		weather_in_hours = ["",0,0,0,0,0,0,0,[]]
 
 		date = datetime.fromtimestamp(weather[0]['dt'])
-		weather_in_hours[0] = str(date.day) + "-" + str(date.month) + "-" + str(date.year)
+		weather_in_hours[0] = str(date.day) + "-" + str(date.month)# + "-" + str(date.year)
 		mini = []
 		maxi = []
 		pic = []
@@ -89,9 +89,9 @@ class Weather_api:
 				pic.append(w['weather'])
 				pic_id.append(w['weather'][0]['id'])
 
-		weather_in_hours[1] = weather_in_hours[1]/len(weather_in_hours)
-		weather_in_hours[2] = max(maxi)
-		weather_in_hours[3] = min(mini)
+		weather_in_hours[1] = round((weather_in_hours[1]/len(weather_in_hours)) - 273.15,2)
+		weather_in_hours[2] = round((max(maxi)) - 273.15,2)
+		weather_in_hours[3] = round((min(mini)) - 273.15,2)
 		weather_in_hours[4] = weather_in_hours[4]/len(weather_in_hours)
 		weather_in_hours[5] = weather_in_hours[5]/len(weather_in_hours)
 		weather_in_hours[6] = weather_in_hours[6]/len(weather_in_hours)
@@ -121,6 +121,39 @@ class Weather_api:
 	        ++i 
 	  
 	    return ret
+
+
+
+	#data 			  -> 0 -> hour
+	#         		  -> 1 -> temperature
+	#          		  -> 2 -> wind
+	#         		  -> 3 -> humidity
+	#         		  -> 4 -> clouds
+	#         		  -> 5 -> rain
+	#         		  -> 6 -> picture
+	def organize_first_nine(self,ww):
+		data = [[],[],[],[],[],[],[],[],[]]
+
+		i=0
+		for w in ww:
+			date = datetime.fromtimestamp(w['dt'])
+			data[i].append(str(date.hour) + ":00")
+			data[i].append(w['main']['temp']-273.15)
+			data[i].append(self.check_if_key_exists(w,'winds','speed'))
+			data[i].append(w['main']['humidity'])
+			data[i].append(self.check_if_key_exists(w,'clouds','all'))
+			data[i].append(self.check_if_key_exists(w,'rain','3h'))
+			data[i].append(w['weather'][0]['icon'])
+			i=i+1
+
+		return data
+
+
+	def check_if_key_exists(self,data,key,key2):
+		try:
+		    return data[key][key2]
+		except KeyError:
+		    return ""
 
 
 	def jprint(self, obj):
